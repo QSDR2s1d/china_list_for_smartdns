@@ -67,4 +67,4 @@ server 210.2.4.8 -group domestic -exclude-default-group
 
 ```
 ---------------------
-Forked from Olixn/china_list_for_smartdns
+Forked from [Olixn/china_list_for_smartdns](https://github.com/Olixn/china_list_for_smartdns)
