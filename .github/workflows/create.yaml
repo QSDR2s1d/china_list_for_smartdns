@@ -1,62 +1,94 @@
-
 name: Build SmartDNS Conf
 
 on:
+  # 手动触发
   workflow_dispatch:
+  # 定时任务：每天 UTC 时间 6:30 执行
   schedule:
-    - cron: "33 3 * * *"
+    - cron: "30 6 * * *"
 
 env:
-  REPO_URL: https://github.com/felixonmars/dnsmasq-china-list
-  REPO_BRANCH: master
+  # 域名列表仓库地址
+  DNSMASQ_CHINA_LIST_URL: https://github.com/felixonmars/dnsmasq-china-list
+  DNSMASQ_CHINA_LIST_BRANCH: master
+  # 规则数据来源 (Loyalsoldier)
+  DIRECT_LIST_URL: https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt
+  PROXY_LIST_URL: https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt
+  # 最终生成文件的名称
+  DIRECT_CONF_FILE: smartdns_direct_rules.conf
+  PROXY_CONF_FILE: smartdns_proxy_rules.conf
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
-        sudo -E apt-get -qq update
-        sudo -E apt-get -qq install make
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "Asia/Shanghai"
-        sudo mkdir -p /workdir
-        sudo chown $USER:$GROUPS /workdir
+      - name: 初始化编译环境
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          # 清理和更新环境
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install make wget
+          sudo -E apt-get -qq autoremove --purge
+          sudo -E apt-get -qq clean
+          # 设置时区为上海
+          sudo timedatectl set-timezone "Asia/Shanghai"
+          # 创建工作目录
+          sudo mkdir -p /workdir
+          sudo chown $USER:$GROUPS /workdir
+          
+      - name: 克隆 dnsmasq-china-list 源码
+        run: |
+          cd /workdir
+          git clone $DNSMASQ_CHINA_LIST_URL -b $DNSMASQ_CHINA_LIST_BRANCH dnsmasq-china-list --depth 1
 
-    - name: Clone source code
-      run: |
-        cd /workdir
-        git clone $REPO_URL -b $REPO_BRANCH dnsmasq-china-list --depth 1
+      # ----------------------------------------------------
+      # 步骤 1: 生成国内直连 (DIRECT) 规则
+      # ----------------------------------------------------
+      - name: 生成国内直连 (DIRECT) 规则文件
+        run: |
+          cd /workdir/dnsmasq-china-list
+          # 下载优化后的国内域名列表 (direct-list.txt 对应 geosite:cn)
+          wget $DIRECT_LIST_URL -O direct-list.txt
+          # 转换为 SmartDNS domain-rules 格式
+          # 配置：国内服务器组 (domestic)、开启 tcp:80 测速、不进行污染检测 (-address -)
+          sed -e "s|\(.*\)|domain-rules /\1/ -speed-check-mode tcp:80 -address - -nameserver domestic|" direct-list.txt > $DIRECT_CONF_FILE
 
-    - name: Compile
-      run: cd /workdir/dnsmasq-china-list && make SERVER=domestic SMARTDNS_SPEEDTEST_MODE=tcp:80 smartdns-domain-rules
+      # ----------------------------------------------------
+      # 步骤 2: 生成国外代理 (PROXY) 规则
+      # ----------------------------------------------------
+      - name: 生成国外代理 (PROXY) 规则文件
+        run: |
+          cd /workdir/dnsmasq-china-list
+          # 下载优化后的国外域名列表 (proxy-list.txt 对应 geosite:geolocation-!cn)
+          wget $PROXY_LIST_URL -O proxy-list.txt
+          # 转换为 SmartDNS domain-rules 格式
+          # 配置：国外服务器组 (gfw)、关闭测速 (-speed-check-mode none)
+          sed -e "s|\(.*\)|domain-rules /\1/ -speed-check-mode none -nameserver gfw|" proxy-list.txt > $PROXY_CONF_FILE
 
-    - name: Compile again
-      run: cd /workdir/dnsmasq-china-list && wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/china-list.txt -O chinalist.txt && sed -e "s|\(.*\)|domain-rules /\1/ -speed-check-mode tcp:80 -address - -nameserver domestic|" chinalist.txt > chinalist.domain.smartdns.conf
+      # ----------------------------------------------------
+      # 步骤 3: 复制文件到仓库并推送
+      # ----------------------------------------------------
+      - name: Checkout 当前仓库
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Compile again again
-      run: cd /workdir/dnsmasq-china-list && wget https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/gfw.txt -O gfwlist.txt && sed -e "s|\(.*\)|domain-rules /\1/ -speed-check-mode none -nameserver gfw|" gfwlist.txt > gfwlist.domain.smartdns.conf
-
-    - name: Checkout
-      uses: actions/checkout@master
-      with:
-         token: ${{ secrets.GITHUB_TOKEN  }}
-
-    - name: Copy files
-      run: cp -rf /workdir/dnsmasq-china-list/*.domain.smartdns.conf ./
+      - name: 复制生成的文件
+        run: |
+          # 复制国内直连和国外代理的配置文件到当前仓库根目录
+          cp -f /workdir/dnsmasq-china-list/$DIRECT_CONF_FILE ./
+          cp -f /workdir/dnsmasq-china-list/$PROXY_CONF_FILE ./
       
-    - name: Commit & Push changes
-      uses: actions-js/push@master
-      with:
-         github_token: ${{ secrets.GITHUB_TOKEN  }}
-
-    - name: Delete workflow runs
-      uses: GitRML/delete-workflow-runs@main
-      with:
-         retain_days: 1
-         keep_minimum_runs: 3
+      - name: 提交并推送更改
+        uses: actions-js/push@v1.4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          message: "Auto update SmartDNS rules: ${{ env.DIRECT_CONF_FILE }} and ${{ env.PROXY_CONF_FILE }} on $(date +%Y-%m-%d)"
+          
+      - name: 删除旧的 workflow runs
+        uses: GitRML/delete-workflow-runs@main
+        with:
+          retain_days: 1
+          keep_minimum_runs: 3
