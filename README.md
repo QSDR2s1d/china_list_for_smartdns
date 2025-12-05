@@ -67,4 +67,4 @@ server 210.2.4.8 -group domestic -exclude-default-group
 
 ```
 ---------------------
-Fork from https://github.com/felixonmars/dnsmasq-china-list
+Forked from Olixn/china_list_for_smartdns
