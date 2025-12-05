@@ -11,7 +11,7 @@
 4. 设置定时更新，执行`crontab -e`创建定时任务，每天凌晨4点执行`0 4 * * * /etc/smartdns/update_rules.sh`
 
 # 一些文件说明  
-- `accelerated-domains.china.domain.smartdns.conf` 要加速的通用域名。
+- `smartdns_direct_rules.conf` 要加速的通用域名。
 使用中国 DNS 服务器时，这些域名具有更好的解析速度和/或结果。
 > 要确定域名是否符合条件，必须满足以下条件之一:
 > 1. 该域名的NS服务器位于中国大陆。
