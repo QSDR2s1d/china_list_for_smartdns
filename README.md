@@ -58,13 +58,13 @@ server 210.2.4.8 -group domestic -exclude-default-group
 设想一下，除 CNNIC 外、大部分公共 DNS 都会尽可能返回距离我本地运营商最近的、最优的 CDN 节点；由于 SmartDNS 的测速和优选，CNNIC 返回的非最优 CDN 节点一般会被忽略。然而，假如距离我最近的 CDN 节点出现故障，只有 CNNIC 能够给我返回不一样的 CDN 节点、能够响应 SmartDNS 测速，因此我能够使用并非最优、但是可用的 CDN 节点「救急」、不至于直接「断网」。
 简单来说，就是因为 CNNIC 公共 DNS 能够非常稳定地提供质量最差的递归 DNS 服务、不会间歇发生解析质量好转，才得以入选。
 
-最后，引入前文由 dnsmasq-china-list 生成的 domain-rules 配置文件：
-```
-conf-file /path/to/dnsmasq-china-list/accelerated-domains.china.domain.smartdns.conf
-conf-file /path/to/dnsmasq-china-list/apple.china.domain.smartdns.conf
 ```
 ---------------------
 本文著作权归作者 Sukka 所有。本文采用 CC BY-NC-SA 4.0 许可协议，商业转载请联系作者获得授权，非商业转载请注明出处。  
 作者：Sukka  
 来源：我有特别的 DNS 配置和使用技巧  
 链接：https://blog.skk.moe/post/i-have-my-unique-dns-setup/  
+
+```
+---------------------
+Fork from https://github.com/felixonmars/dnsmasq-china-list
