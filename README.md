@@ -1,4 +1,4 @@
-# 本仓库北京时间每天11:33自动更新
+# 本仓库北京时间每天6:30自动更新
 
 # 数据来源
 - [dnsmasq-china-list](https://github.com/felixonmars/dnsmasq-china-list)
